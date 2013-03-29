@@ -101,10 +101,12 @@ public class Parser {
                   }
                }
 
+               query = query.trim();
+
                if (query.length() == 0) {
                   Logger.logError(String.format("Empty query (%d) in file: %s", num, fileName));
                } else {
-                  if (!query.endsWith("; ")) {
+                  if (!query.endsWith(";")) {
                      Logger.logError(String.format(
                            "SANITY -- Query #%d does not end with a semicolon in file: %s",
                            num, fileName));
@@ -131,7 +133,106 @@ public class Parser {
     * information about the expected results.
     */
    public static Map<Integer, ExpectedResults> parseKey(String fileName) {
-      // TODO(eriq)
-      return null;
+      Map<Integer, ExpectedResults> res = new LinkedHashMap<Integer, ExpectedResults>();
+      int lastNumber = 0;
+
+      try {
+         Scanner fileScanner = new Scanner(new File(fileName));
+
+         while (fileScanner.hasNextLine()) {
+            Matcher match = QUERY_NUMBER_PATTERN.matcher(fileScanner.nextLine().trim());
+            if (match.matches()) {
+               int num = Integer.parseInt(match.group(1));
+
+               if (num <= lastNumber) {
+                  Logger.logError(String.format(
+                        "SANITY -- Last Number (%d) is not less than new number (%d) in file: %s",
+                        lastNumber, num, fileName));
+                  return null;
+               }
+
+               String options = "";
+
+               List<String> queries = new ArrayList<String>();
+               String query = "";
+
+               while (fileScanner.hasNextLine()) {
+                  String line = fileScanner.nextLine().trim();
+
+                  // Empty line, no more queries.
+                  if (line.length() == 0 || !fileScanner.hasNextLine()) {
+                     // Make sure to get the final line of the file.
+                     if (!fileScanner.hasNextLine()) {
+                        query += line;
+                     }
+
+                     query = query.trim();
+
+                     if (query.length() == 0) {
+                        Logger.logError(String.format("Empty query (%d) in file: %s", num, fileName));
+                     }
+
+                     if (!query.endsWith(";")) {
+                        Logger.logError(String.format(
+                              "SANITY -- Query #%d does not end with a semicolon in file: %s",
+                              num, fileName));
+                        return null;
+                     }
+
+                     queries.add(query);
+                     query = "";
+                     break;
+                  }
+
+                  // TODO(eriq): Be less strict.
+                  // Ignore normal comments, but get variants.
+                  if (!line.startsWith("--")) {
+                     query += line + " ";
+                  } else if (line.startsWith("-- variant")) {
+                     queries.add(query);
+                     query = "";
+                  } else if (line.startsWith("-- Options: ")) {
+                     options = line.substring(12);
+                  }
+               }
+
+               res.put(new Integer(num), compileExpectedResults(options, queries));
+
+               lastNumber = num;
+            }
+         }
+      } catch (Exception ex) {
+         Logger.logError("Error parsing file: " + fileName, ex);
+         return null;
+      }
+
+      return res;
+   }
+
+   private static ExpectedResults compileExpectedResults(String options, List<String> queries) {
+      boolean sorted = false;
+      List<String> sortKeys = new ArrayList<String>();
+
+      options = options.trim();
+
+      if (options.length() == 0) {
+         return new ExpectedResults(sorted, sortKeys, queries);
+      }
+
+      for (String option : options.split(";")) {
+         option = option.trim();
+
+         String[] parts = option.split(":");
+         if (parts[0].trim().equals("SortKeys")) {
+            sorted = true;
+            for (String key : parts[1].trim().split(",")) {
+               sortKeys.add(key.trim());
+            }
+         } else {
+            Logger.logError("Unrecognized option: '" + parts[0] + "'.");
+         }
+      }
+
+      return new ExpectedResults(sorted, sortKeys, queries);
    }
 }

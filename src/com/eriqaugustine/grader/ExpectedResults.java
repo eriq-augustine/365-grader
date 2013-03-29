@@ -9,7 +9,7 @@ import java.util.List;
 public class ExpectedResults {
    /**
     * If the results are expected to be in any sorted order.
-    * If this is set but |sortKeys| is null, then the results are expectecd
+    * If this is set but |sortKeys| is empty, then the results are expectecd
     * to be in perfectly sorted order.
     * However if this is set and |sortKeys| is a proper subset of all the
     * attributes, then there may be some rows that are in a different order
@@ -63,12 +63,11 @@ public class ExpectedResults {
       for (int i = 0; i < sortKeys.size(); i++) {
          res += sortKeys.get(i);
 
-         if (i == sortKeys.size() - 1) {
-            res += "]\n";
-         } else {
+         if (i != sortKeys.size() - 1) {
             res += ", ";
          }
       }
+      res += "]\n";
 
       res += prefix + "Queries:\n";
       for (String query : queries) {
