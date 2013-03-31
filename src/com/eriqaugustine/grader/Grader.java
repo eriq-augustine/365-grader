@@ -3,6 +3,8 @@ package com.eriqaugustine.grader;
 import java.io.File;
 import java.io.FilenameFilter;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -23,6 +25,9 @@ public class Grader {
    }
 
    public static void main(String[] args) {
+      boolean verbose = false;
+      boolean noCommit = false;
+
       if (args.length < 1) {
          printUsage();
          System.exit(0);
@@ -37,11 +42,12 @@ public class Grader {
       for (int i = 0; i < args.length - 1; i++) {
          if (args[i].equals("--verbose")) {
             Logger.setVerbose(true);
+            verbose = true;
          } else if (args[i].equals("--parse-only")) {
             int exitStatus = parseFileOrDir(target) ? 0 : 1;
             System.exit(exitStatus);
          } else if (args[i].equals("--no-commit")) {
-            // TODO(eriq)
+            noCommit = true;
          } else if (args[i].equals("--help")) {
             printUsage();
             System.exit(0);
@@ -50,6 +56,14 @@ public class Grader {
             System.exit(1);
          }
       }
+
+      if (!Props.readFile(target)) {
+         Logger.logError("Unable to parse configuration file: " + target);
+         System.exit(1);
+      }
+
+      Grader grader = new Grader(verbose, noCommit);
+      grader.grade();
    }
 
    /**
@@ -83,13 +97,74 @@ public class Grader {
       }
    }
 
-   private boolean setupDb() {
+   public Grader(boolean verbose, boolean noCommit) {
+      this.verbose = verbose;
+      this.noCommit = noCommit;
+   }
+
+   public void grade() {
       // TODO(eriq)
-      return false;
+      setupDb();
+      tearDownDb();
+   }
+
+   private boolean setupDb() {
+      Logger.log("BEGIN Database Setup");
+
+      List<String> setupCommand = Arrays.asList(
+            "/usr/bin/mysql",
+            Props.getString("DB_NAME", "csc365"),
+            "--host",
+            Props.getString("DB_HOST", "localhost"),
+            "--user",
+            Props.getString("DB_USER", "grader"));
+
+      if (!Props.getString("DB_PASS", "").equals("")) {
+         setupCommand.add("--pass");
+         setupCommand.add(Props.getString("DB_PASS"));
+      }
+
+      try {
+         Util.execAndWait(setupCommand,
+                          Props.getString("SETUP_DIR", "."),
+                          Props.getString("SETUP_SCRIPT"),
+                          null);
+      } catch (Exception ex) {
+         Logger.logError("Error setting up database.", ex);
+         return false;
+      }
+
+      Logger.log("END Database Setup");
+      return true;
    }
 
    private boolean tearDownDb() {
-      // TODO(eriq)
-      return false;
+      Logger.log("BEGIN Database Teardown");
+
+      List<String> cleanupCommand = Arrays.asList(
+            "/usr/bin/mysql",
+            Props.getString("DB_NAME", "csc365"),
+            "--host",
+            Props.getString("DB_HOST", "localhost"),
+            "--user",
+            Props.getString("DB_USER", "grader"));
+
+      if (!Props.getString("DB_PASS", "").equals("")) {
+         cleanupCommand.add("--pass");
+         cleanupCommand.add(Props.getString("DB_PASS"));
+      }
+
+      try {
+         Util.execAndWait(cleanupCommand,
+                          Props.getString("CLEANUP_DIR", "."),
+                          Props.getString("CLEANUP_SCRIPT"),
+                          null);
+      } catch (Exception ex) {
+         Logger.logError("Error setting up database.", ex);
+         return false;
+      }
+
+      Logger.log("END Database Teardown");
+      return true;
    }
 }

@@ -2,6 +2,8 @@ package com.eriqaugustine.grader;
 
 import java.io.File;
 
+import java.util.List;
+
 /**
  * A purely static class to provide some random utilities.
  */
@@ -15,20 +17,37 @@ public class Util {
     * can be differentiated from an error in the running command
     * (non-zero exit status).
     */
-   public static int execAndWait(String command, String workingDir) throws Exception {
+   public static int execAndWait(List<String> command,
+                                 String workingDir,
+                                 String inputRedirect,
+                                 String outputRedirect) throws Exception {
       Runtime runtime = Runtime.getRuntime();
 
-      Process proc = runtime.exec(command,
-                                  null /* no environmental variables */,
-                                  new File(workingDir));
+      ProcessBuilder builder = new ProcessBuilder();
+      builder.command(command);
+
+      if (workingDir != null) {
+         builder.directory(new File(workingDir));
+      }
+
+      if (inputRedirect != null && inputRedirect.length() > 0) {
+         builder.redirectInput(new File(workingDir, inputRedirect));
+      }
+
+      if (outputRedirect != null && outputRedirect.length() > 0) {
+         builder.redirectOutput(new File(workingDir, outputRedirect));
+      }
+
+      Process proc = builder.start();
       proc.waitFor();
+
       return proc.exitValue();
    }
 
    /**
     * Convenience version that just uses '.' as the cwd.
     */
-   public static int execAndWait(String command) throws Exception {
-      return execAndWait(command, ".");
+   public static int execAndWait(List<String> command) throws Exception {
+      return execAndWait(command, ".", null, null);
    }
 }
