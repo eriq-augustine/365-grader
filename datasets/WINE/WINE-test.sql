@@ -1,0 +1,5 @@
+SELECT COUNT(*) FROM Appellations;
+
+SELECT COUNT(*) FROM Grapes;
+
+SELECT COUNT(*) FROM Wine;

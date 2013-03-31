@@ -1,0 +1,35 @@
+--
+--  CSC 365: build all databases
+--
+
+-- AIRLINES
+source AIRLINES/AIRLINES-setup.sql
+source AIRLINES/AIRLINES-insert.sql
+
+-- BAKERY
+source BAKERY/BAKERY-setup.sql
+source BAKERY/BAKERY-insert.sql
+
+-- CARS
+source CARS/CARS-setup.sql
+source CARS/CARS-insert.sql
+
+-- CSU
+source CSU/CSU-setup.sql
+source CSU/CSU-insert.sql
+
+-- INN
+source INN/INN-setup.sql
+source INN/INN-insert.sql
+
+-- MARATHON
+source MARATHON/MARATHON-setup.sql
+source MARATHON/MARATHON-insert.sql
+
+-- STUDENTS
+source STUDENTS/STUDENTS-setup.sql
+source STUDENTS/STUDENTS-insert.sql
+
+-- WINE
+source WINE/WINE-setup.sql
+source WINE/WINE-insert.sql
