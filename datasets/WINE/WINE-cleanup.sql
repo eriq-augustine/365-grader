@@ -1,5 +1,5 @@
-DROP TABLE Wine;
+DROP TABLE IF EXISTS Wine;
 
-DROP TABLE Appellations;
+DROP TABLE IF EXISTS Appellations;
 
-DROP TABLE Grapes;
+DROP TABLE IF EXISTS Grapes;

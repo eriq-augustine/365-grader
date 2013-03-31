@@ -1,5 +1,5 @@
-DROP TABLE Flights;
+DROP TABLE IF EXISTS Flights;
 
-DROP TABLE Airports;
+DROP TABLE IF EXISTS Airports;
 
-DROP TABLE Airlines;
+DROP TABLE IF EXISTS Airlines;

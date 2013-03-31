@@ -1,1 +1,1 @@
-DROP TABLE Marathon;
+DROP TABLE IF EXISTS Marathon;

@@ -1,13 +1,13 @@
-DROP TABLE Faculty;
+DROP TABLE IF EXISTS Faculty;
 
-DROP TABLE Enrollments;
+DROP TABLE IF EXISTS Enrollments;
 
-DROP TABLE DisciplineEnrollments;
+DROP TABLE IF EXISTS DisciplineEnrollments;
 
-DROP TABLE Disciplines;
+DROP TABLE IF EXISTS Disciplines;
 
-DROP TABLE Degrees;
+DROP TABLE IF EXISTS Degrees;
 
-DROP TABLE Fees;
+DROP TABLE IF EXISTS Fees;
 
-DROP TABLE Campuses;
+DROP TABLE IF EXISTS Campuses;

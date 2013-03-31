@@ -1,6 +1,6 @@
----
----  CSC 365: Clean up all databases
----
+--
+--  CSC 365: Clean up all databases
+--
 
 source AIRLINES/AIRLINES-cleanup.sql
 source BAKERY/BAKERY-cleanup.sql

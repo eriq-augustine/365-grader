@@ -104,8 +104,14 @@ public class Grader {
 
    public void grade() {
       // TODO(eriq)
-      setupDb();
-      tearDownDb();
+      //setupDb();
+
+      Map<String, Map<Integer, ExpectedResults>> keys =
+            Parser.parseKeyDirectory(Props.getString("SOLUTIONS_DIR"));
+      Map<String, Map<String, Map<Integer, String>>> submissions =
+            Parser.parseSubmissions(Props.getString("SUBMISSIONS_DIR"));
+
+      //tearDownDb();
    }
 
    private boolean setupDb() {

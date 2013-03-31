@@ -1,3 +1,3 @@
-DROP TABLE Reservations;
+DROP TABLE IF EXISTS Reservations;
 
-DROP TABLE Rooms;
+DROP TABLE IF EXISTS Rooms;

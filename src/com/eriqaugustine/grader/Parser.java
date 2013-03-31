@@ -1,8 +1,10 @@
 package com.eriqaugustine.grader;
 
 import java.io.File;
+import java.io.FilenameFilter;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +63,110 @@ public class Parser {
          }
       }
 
+   }
+
+   /**
+    * Parse all the sql files in a directory and return a map of the
+    * files base name (no extension) to the parsed results.
+    * Erronious files will still be entered, but will have a null value.
+    */
+   private static Map<String, Object> parseDirectory(String directoryName,
+                                                                  boolean isKey) {
+      Map<String, Object> rtn = new HashMap<String, Object>();
+
+      File dir = new File(directoryName);
+      if (!dir.isDirectory()) {
+         Logger.logError("Asked to parse a directory that is not a directory: " + directoryName);
+         return null;
+      }
+
+      File[] files = dir.listFiles(new FilenameFilter(){
+         public boolean accept(File dir, String name) {
+            return name.endsWith(".sql");
+         }
+      });
+
+      for (File file : files) {
+         // Strip off the '.sql' that we know exists because of the filter above.
+         String baseName = file.getName().substring(0, file.getName().length() - 4);
+
+         Object queries = null;
+         if (isKey) {
+            queries = parseKey(file.getAbsolutePath());
+         } else {
+            queries = parseFile(file.getAbsolutePath());
+         }
+
+         rtn.put(baseName, queries);
+      }
+
+      return rtn;
+   }
+
+   /**
+    * Parse all the keys (.sql) fiiles in a directory and return a map of the
+    * files base name (no extension) to the parsed results.
+    * Erronious files will not be tolereated and will generate a fatal error.
+    */
+   @SuppressWarnings("unchecked")
+   public static Map<String, Map<Integer, ExpectedResults>> parseKeyDirectory(String directoryName) {
+      Map<String, Map<Integer, ExpectedResults>> rtn = new HashMap<String, Map<Integer, ExpectedResults>>();
+      Map<String, Object> parseResults = parseDirectory(directoryName, true);
+
+      for (Map.Entry<String, Object> entry : parseResults.entrySet()) {
+         if (entry.getValue() == null) {
+            Logger.logFatal("Bad parse of key file: " + entry.getKey());
+         }
+
+         rtn.put(entry.getKey(), (Map<Integer, ExpectedResults>)entry.getValue());
+      }
+
+      return rtn;
+   }
+
+   /**
+    * Parse all the sql files in a submission directory and return a map of the
+    * files base name (no extension) to the parsed results.
+    * Erronious files will still be entered, but will have a null value.
+    */
+   @SuppressWarnings("unchecked")
+   public static Map<String, Map<Integer, String>> parseSubmissionDirectory(String directoryName) {
+      Map<String, Map<Integer, String>> rtn = new HashMap<String, Map<Integer, String>>();
+      Map<String, Object> parseResults = parseDirectory(directoryName, false);
+
+      for (Map.Entry<String, Object> entry : parseResults.entrySet()) {
+         rtn.put(entry.getKey(), (Map<Integer, String>)entry.getValue());
+      }
+
+      return rtn;
+   }
+
+   /**
+    * Parse a directory containing all the student submissions.
+    */
+   public static Map<String, Map<String, Map<Integer, String>>> parseSubmissions(String directoryName) {
+      Map<String, Map<String, Map<Integer, String>>> rtn =
+            new HashMap<String, Map<String, Map<Integer, String>>>();
+
+      File dir = new File(directoryName);
+      if (!dir.isDirectory()) {
+         Logger.logError("Asked to parse a submissions directory that is not a directory: " + directoryName);
+         return null;
+      }
+
+      File[] files = dir.listFiles();
+      for (File file : files) {
+         if (!file.isDirectory()) {
+            continue;
+         }
+
+         String studentName = file.getName();
+         Map<String, Map<Integer, String>> submission = parseSubmissionDirectory(file.getAbsolutePath());
+
+         rtn.put(studentName, submission);
+      }
+
+      return rtn;
    }
 
    /**

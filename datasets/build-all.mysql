@@ -2,6 +2,9 @@
 --  CSC 365: build all databases
 --
 
+-- Make sure everything is clean first.
+source cleanup-all.mysql
+
 -- AIRLINES
 source AIRLINES/AIRLINES-setup.sql
 source AIRLINES/AIRLINES-insert.sql
