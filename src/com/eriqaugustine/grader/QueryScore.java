@@ -117,7 +117,7 @@ public class QueryScore {
          numCorrectRows = sortedCompare(smaller, larger, mapping, expected.getSortKeys());
 
          // Maybe the sort was wrong().
-         if ((double)numCorrectRows / smaller.getColumns().size() < LOW_CORRECT_ROW_PERCENTAGE) {
+         if ((double)numCorrectRows / smaller.getRows().size() < LOW_CORRECT_ROW_PERCENTAGE) {
             int unsortedCorrectRows = unsortedCompare(smaller, larger, mapping);
 
             if (unsortedCorrectRows > numCorrectRows) {
@@ -132,7 +132,7 @@ public class QueryScore {
 
       // Use smaller because this is the percentage of rows that were given that are correct.
       // Points were already taken off for incorrect number of rows, no need to take off more.
-      double correctPercent = (double)numCorrectRows / smaller.getColumns().size();
+      double correctPercent = (double)numCorrectRows / smaller.getRows().size();
       if (correctPercent < MIN_CORRECT_ROW_PERCENTAGE) {
          deductions.add(new Integer(MAX_SCORE));
          deductionReasons.add("Significant number of incorrect rows");

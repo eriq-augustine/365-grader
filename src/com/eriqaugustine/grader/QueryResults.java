@@ -53,6 +53,24 @@ public class QueryResults {
       return rows;
    }
 
+   public String toString() {
+      String rtn = "";
+
+      for (ColumnData data : columns) {
+         rtn += data.name + "\t|";
+      }
+      rtn += "\n----------\n";
+
+      for (Map<String, Object> row : rows) {
+         for (ColumnData data : columns) {
+            rtn += row.get(data.name) + "\t|";
+         }
+         rtn += "\n";
+      }
+
+      return rtn;
+   }
+
    public static class ColumnData {
       public String name;
 
