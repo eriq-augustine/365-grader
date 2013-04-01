@@ -2,19 +2,25 @@ package com.eriqaugustine.grader;
 
 import java.io.File;
 import java.io.FilenameFilter;
+import java.io.FileWriter;
 
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * The main for the grading process.
  */
 public class Grader {
+   private static final int SUBMISSION_SCORE_MAX = 25;
+
    private boolean verbose;
    private boolean noCommit;
+   private boolean skipGradesheets;
 
    /**
     * Used for all (non-script) db interactions.
@@ -24,7 +30,7 @@ public class Grader {
    public static void printUsage() {
       // TODO(eriq): Usage
       System.out.println("Standard usage for grading:");
-      System.out.println("   java com.eriqaugustine.grader.Grader [--verbose][--no-commit] <config file>");
+      System.out.println("   java com.eriqaugustine.grader.Grader [--verbose][--no-commit][--skip-gradesheets] <config file>");
       System.out.println("To run a test parse on a single submission file or directory:");
       System.out.println("   java com.eriqaugustine.grader.Grader [--verbose] --parse-only <submission file or dir>");
       System.out.println("To print this:");
@@ -34,6 +40,7 @@ public class Grader {
    public static void main(String[] args) {
       boolean verbose = false;
       boolean noCommit = false;
+      boolean skipGradesheets = false;
 
       if (args.length < 1) {
          printUsage();
@@ -55,6 +62,8 @@ public class Grader {
             System.exit(exitStatus);
          } else if (args[i].equals("--no-commit")) {
             noCommit = true;
+         } else if (args[i].equals("--skip-gradesheets")) {
+            skipGradesheets = true;
          } else if (args[i].equals("--help")) {
             printUsage();
             System.exit(0);
@@ -136,7 +145,114 @@ public class Grader {
          Logger.logFatal("Unknown gradding type: " + Props.getString("TYPE"));
       }
 
-      // TODO
+      if (!skipGradesheets) {
+         Set<String> sortedDatasets = new TreeSet<String>();
+         Map<String, Integer> datasetCounts = new HashMap<String, Integer>();
+         for (String dataset : keys.keySet()) {
+            sortedDatasets.add(dataset);
+            datasetCounts.put(dataset, new Integer(keys.get(dataset).size()));
+         }
+
+         createGradeSheets(scores, sortedDatasets, datasetCounts);
+      }
+
+      if (verbose) {
+         for (String student : scores.keySet()) {
+            int score = SUBMISSION_SCORE_MAX;
+
+            for (String dataset : scores.get(student).keySet()) {
+               for (Integer queryNum : scores.get(student).get(dataset).keySet()) {
+                  score += scores.get(student).get(dataset).get(queryNum).getScore();
+               }
+            }
+
+            Logger.log(student + ": " + score);
+         }
+      }
+
+      if (!noCommit) {
+         commitGrades(scores);
+      }
+   }
+
+   /**
+    * Create all the gradesheets in the appropriate directory.
+    */
+   private void createGradeSheets(Map<String, Map<String, Map<Integer, QueryScore>>> scores,
+                                  Set<String> sortedDatasets,
+                                  Map<String, Integer> datasetCounts) {
+      try {
+         File file = new File(Props.getString("GRADESHEET_DIR"));
+         file.mkdir();
+      } catch (Exception ex) {
+         Logger.logError("Unable to make gradesheet directory");
+      }
+
+      for (String student : scores.keySet()) {
+         createGradeSheet(student, scores.get(student), sortedDatasets, datasetCounts);
+      }
+   }
+
+   private void createGradeSheet(String student, Map<String, Map<Integer, QueryScore>> score,
+                                 Set<String> sortedDatasets, Map<String, Integer> datasetCounts) {
+      String gradesheet = Props.getString("NAME") + "\n";
+      gradesheet += "Student: " + student + "\n\n";
+
+      int total = SUBMISSION_SCORE_MAX;
+      int totalNumberOfQueries = 0;
+
+      String datasetScores = "-------------------------------------------------\n";
+      for (String dataset : sortedDatasets) {
+         int queriesForDataset = datasetCounts.get(dataset).intValue();
+         totalNumberOfQueries += queriesForDataset;
+
+         if (!score.containsKey(dataset)) {
+            datasetScores += dataset + " : 0/" + queriesForDataset * 5 +
+                             "  -- No submission for dataset;\n\n";
+            continue;
+         }
+
+         String datasetQueryScores = "";
+         int datasetTotal = 0;
+         for (int i = 1; i <= queriesForDataset; i++) {
+            if (score.get(dataset).containsKey(new Integer(i))) {
+               datasetQueryScores += "Query " + i + ": " + score.get(dataset).get(new Integer(i)).toString() + "\n";
+               datasetTotal += score.get(dataset).get(new Integer(i)).getScore();
+            } else {
+               datasetQueryScores += "Query " + i + ": 0/5  -- Missing Query;\n";
+            }
+         }
+
+         total += datasetTotal;
+         datasetScores += dataset + " : " + datasetTotal + "/" + queriesForDataset * 5 + "\n";
+         datasetScores += datasetQueryScores + "\n";
+      }
+
+      gradesheet += "Total: " + total + "/" + (SUBMISSION_SCORE_MAX + (totalNumberOfQueries * 5)) + "\n\n";
+      // TODO(eriq): Take off for submission.
+      gradesheet += "Submission: " + SUBMISSION_SCORE_MAX + "/" + SUBMISSION_SCORE_MAX + "\n\n";
+      gradesheet += "QUERIES: " + (total - SUBMISSION_SCORE_MAX) + "/" + (totalNumberOfQueries * 5) + "\n";
+      gradesheet += datasetScores;
+
+      try {
+         String path = Props.getString("GRADESHEET_DIR") + "/" + student + ".gradesheet";
+
+         File file = new File(path);
+         file.delete();
+
+         FileWriter writer = new FileWriter(path);
+         writer.write(gradesheet);
+         writer.close();
+      } catch (Exception ex) {
+         Logger.logError("Error writting gradesheet for " + student);
+      }
+   }
+
+   /**
+    * Commit all the scores to the db.
+    */
+   private void commitGrades(Map<String, Map<String, Map<Integer, QueryScore>>> scores) {
+      // TODO(eriq)
    }
 
    /**
@@ -222,8 +338,6 @@ public class Grader {
    }
 
    private boolean setupDb() {
-      Logger.log("BEGIN Database Setup");
-
       List<String> setupCommand = Arrays.asList(
             "/usr/bin/mysql",
             Props.getString("DB_NAME", "csc365"),
@@ -247,13 +361,10 @@ public class Grader {
          return false;
       }
 
-      Logger.log("END Database Setup");
       return true;
    }
 
    private boolean tearDownDb() {
-      Logger.log("BEGIN Database Teardown");
-
       List<String> cleanupCommand = Arrays.asList(
             "/usr/bin/mysql",
             Props.getString("DB_NAME", "csc365"),
@@ -277,7 +388,6 @@ public class Grader {
          return false;
       }
 
-      Logger.log("END Database Teardown");
       return true;
    }
 }

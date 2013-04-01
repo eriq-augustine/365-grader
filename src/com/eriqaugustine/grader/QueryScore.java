@@ -51,6 +51,20 @@ public class QueryScore {
       return deductionReasons;
    }
 
+   public String toString() {
+      String rtn = "" + score + "/" + MAX_SCORE;
+
+      if (deductions.size() > 0) {
+         rtn += "  -- ";
+
+         for (int i = 0; i < deductions.size(); i++) {
+            rtn += deductionReasons.get(i) + "; ";
+         }
+      }
+
+      return rtn;
+   }
+
    public static QueryScore score(QueryResults result, QueryResults key,
                                   ExpectedResults expected) {
       List<Integer> deductions = new ArrayList<Integer>();
