@@ -67,5 +67,37 @@ public class DBConnection {
       }
    }
 
+   public QueryResults doQuery(String query) {
+      QueryResults rtn = null;
+      Statement statement = null;
+      ResultSet results = null;
 
+      try {
+         // Get a statement from the connection
+         statement = conn.createStatement();
+
+         // Execute the query
+         results = statement.executeQuery(query);
+
+         rtn = new QueryResults(results);
+      } catch (SQLException sqlEx) {
+         Logger.logError("Error doing query.", sqlEx);
+      } finally {
+         try {
+            if (results != null) {
+               results.close();
+               results = null;
+            }
+
+            if (statement != null) {
+               statement.close();
+               statement = null;
+            }
+         } catch (Exception ex) {
+            Logger.logError("Error closing query.");
+         }
+      }
+
+      return rtn;
+   }
 }

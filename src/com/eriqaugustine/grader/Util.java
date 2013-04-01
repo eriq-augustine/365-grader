@@ -2,7 +2,9 @@ package com.eriqaugustine.grader;
 
 import java.io.File;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A purely static class to provide some random utilities.
@@ -49,5 +51,19 @@ public class Util {
     */
    public static int execAndWait(List<String> command) throws Exception {
       return execAndWait(command, ".", null, null);
+   }
+
+   /**
+    * Reverse a map.
+    * This is super specific to maps of Strings and hashmaps.
+    */
+   public static Map<String, String> reverseMap(Map<String, String> map) {
+      Map<String, String> reverse = new HashMap<String, String>();
+
+      for (Map.Entry<String, String> entry : map.entrySet()) {
+         reverse.put(entry.getValue(), entry.getKey());
+      }
+
+      return reverse;
    }
 }

@@ -28,8 +28,10 @@ public class QueryResults {
       rows = new ArrayList<Map<String, Object>>();
 
       ResultSetMetaData metaData = results.getMetaData();
-      for (int i = 0; i < metaData.getColumnCount(); i++) {
-         columns.add(new ColumnData(metaData.getColumnClassName(i), metaData.getColumnLabel(i)));
+      // NOTE: Columns are 1 indexed.
+      for (int i = 1; i <= metaData.getColumnCount(); i++) {
+         columns.add(new ColumnData(metaData.getColumnLabel(i),
+                                    metaData.getColumnClassName(i)));
       }
 
       while (results.next()) {
@@ -41,6 +43,14 @@ public class QueryResults {
 
          rows.add(row);
       }
+   }
+
+   public List<ColumnData> getColumns() {
+      return columns;
+   }
+
+   public List<Map<String, Object>> getRows() {
+      return rows;
    }
 
    public static class ColumnData {

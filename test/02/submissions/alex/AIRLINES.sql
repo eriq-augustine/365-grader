@@ -1,8 +1,8 @@
---- Lab 5 AIRLINES dataset
+--- Lab 5 Airlines dataset
 
 --- query 1
 select a.code, a.name
-from airports a, flights f
+from Airports a, Flights f
 where f.source= a.code
 group by a.code, a.name
 having count(*) = 19
@@ -12,7 +12,7 @@ order by a.code
 
 --- query 2
 select count(distinct f1.source)
-from  flights f1, flights f2
+from  Flights f1, Flights f2
 where f2.destination = 'ASY' and
       f1.destination = f2.source and
       f1.source != 'ASY'
@@ -20,7 +20,7 @@ where f2.destination = 'ASY' and
 
 --- query 3
 select f2.destination, count(distinct f1.source) as REACHABLE
-from flights f1, flights f2
+from Flights f1, Flights f2
 where f1.destination = f2.source and
       f1.source <> f2.destination 
  ---     and f2.destination = 'ASY'
@@ -33,7 +33,7 @@ order by REACHABLE DESC
 
 --- query 4
 select count(distinct f1.source)
-from  flights f1, flights f2
+from  Flights f1, Flights f2
 where (f2.destination = 'ATE' and
       f1.destination = f2.source and
       f1.source != 'ATE') OR
@@ -44,9 +44,9 @@ where (f2.destination = 'ATE' and
 
 --- query 5
 select a.name, count(distinct f.source) AS "Operational Airports"
-from airlines a, airports p, flights f
+from Airlines a, Airports p, Flights f
 where f.airline = a.id and f.source = p.code
-group by a.id, a.name, a.abbr
+group by a.id, a.name, a.abbreviation
 order by "Operational Airports" DESC
 ;
 

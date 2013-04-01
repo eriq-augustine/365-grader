@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.FilenameFilter;
 
 import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -13,6 +15,11 @@ import java.util.Map;
 public class Grader {
    private boolean verbose;
    private boolean noCommit;
+
+   /**
+    * Used for all (non-script) db interactions.
+    */
+   private DBConnection dbConnection;
 
    public static void printUsage() {
       // TODO(eriq): Usage
@@ -100,18 +107,118 @@ public class Grader {
    public Grader(boolean verbose, boolean noCommit) {
       this.verbose = verbose;
       this.noCommit = noCommit;
+      dbConnection = new DBConnection();
+
+      if (dbConnection == null) {
+         Logger.logFatal("Unable to get a DB connection.");
+      }
    }
 
    public void grade() {
-      // TODO(eriq)
-      //setupDb();
-
       Map<String, Map<Integer, ExpectedResults>> keys =
             Parser.parseKeyDirectory(Props.getString("SOLUTIONS_DIR"));
+
+      Map<String, Map<Integer, List<QueryResults>>> keyResults = getKeyResults(keys);
+
       Map<String, Map<String, Map<Integer, String>>> submissions =
             Parser.parseSubmissions(Props.getString("SUBMISSIONS_DIR"));
 
-      //tearDownDb();
+      Map<String, Map<String, Map<Integer, QueryScore>>> scores =
+            new HashMap<String, Map<String, Map<Integer, QueryScore>>>();
+
+      if (Props.getString("TYPE").equals("query")) {
+         for (String student : submissions.keySet()) {
+            scores.put(student, gradeSubmission(submissions.get(student), keys, keyResults));
+         }
+      } else if (Props.getString("TYPE").equals("update")) {
+         Logger.logFatal("'update' grading type is not yet supported.");
+      } else {
+         Logger.logFatal("Unknown gradding type: " + Props.getString("TYPE"));
+      }
+
+      // TODO
+   }
+
+   /**
+    * Grade a submission and return a mapping of dataset to the grades for
+    * each query in they dataset.
+    */
+   private Map<String, Map<Integer, QueryScore>> gradeSubmission(
+         Map<String, Map<Integer, String>> submission,
+         Map<String, Map<Integer, ExpectedResults>> keys,
+         Map<String, Map<Integer, List<QueryResults>>> keyResults) {
+      Map<String, Map<Integer, QueryScore>> rtn = new HashMap<String, Map<Integer, QueryScore>>();
+
+      setupDb();
+
+      for (String dataset : submission.keySet()) {
+         Map<Integer, QueryScore> scores = new HashMap<Integer, QueryScore>();
+
+         for (Integer queryNum : submission.get(dataset).keySet()) {
+            scores.put(queryNum, gradeQuery(submission.get(dataset).get(queryNum),
+                                            keys.get(dataset).get(queryNum),
+                                            keyResults.get(dataset).get(queryNum)));
+         }
+
+         rtn.put(dataset, scores);
+      }
+
+      tearDownDb();
+
+      return rtn;
+   }
+
+   private QueryScore gradeQuery(String query, ExpectedResults key, List<QueryResults> keyResults) {
+      QueryResults result = dbConnection.doQuery(query);
+
+      if (result == null) {
+         return null;
+      }
+
+      QueryScore bestScore = null;
+
+      for (QueryResults keyResult : keyResults) {
+         QueryScore newScore = QueryScore.score(result, keyResult, key);
+
+         if (bestScore == null || newScore.getScore() > bestScore.getScore()) {
+            bestScore = newScore;
+         }
+      }
+
+      return bestScore;
+   }
+
+   private Map<String, Map<Integer, List<QueryResults>>> getKeyResults(
+         Map<String, Map<Integer, ExpectedResults>> keys) {
+      Map<String, Map<Integer, List<QueryResults>>> rtn =
+            new HashMap<String, Map<Integer, List<QueryResults>>>();
+
+      setupDb();
+
+      for (String dataset : keys.keySet()) {
+         Map<Integer, List<QueryResults>> results = new HashMap<Integer, List<QueryResults>>();
+
+         for (Integer queryNum : keys.get(dataset).keySet()) {
+            results.put(queryNum, new ArrayList<QueryResults>());
+
+            for (String query : keys.get(dataset).get(queryNum).getQueries()) {
+               QueryResults result = dbConnection.doQuery(query);
+
+               if (result == null) {
+                  // Key queries are not suppose to fail.
+                  Logger.logFatal("Failed to run query #" + queryNum + " in the " + dataset + " dataset.");
+               }
+
+               results.get(queryNum).add(result);
+            }
+         }
+
+         rtn.put(dataset, results);
+      }
+
+      tearDownDb();
+
+      return rtn;
    }
 
    private boolean setupDb() {

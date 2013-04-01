@@ -3,7 +3,7 @@
 
 -- query 1
 select flavor, avg(price) as AVGPRICE, COUNT(*)
-from goods
+from Goods
 group by flavor
 having count(*) > 3
 order by AVGPRICE
@@ -11,40 +11,40 @@ order by AVGPRICE
 
 --- query 2
 select sum(price)
-from goods g, items i, receipts r
-where g.gid = i.item and r.rnumber = i.reciept and
-      r.saledate >= '10-OCT-2007' and r.saledate<= '15-OCT-2007'
+from Goods g, Items i, Receipts r
+where g.gId = i.item and r.rNumber = i.receipt and
+      r.saleDate >= '10-OCT-2007' and r.saleDate<= '15-OCT-2007'
 ;
 
 --- query 3
-select r.rnumber, r.saledate, count(*), sum(price) as PAID
-from receipts r, items i, customers c, goods g
-where r.rnumber = i.reciept and r.customer = c.cid and
-      i.item = g.gid and
-      c.lastname = 'MESDAQ' and c.firstname = 'CHARLENE'
-group by r.rnumber, r.saledate
+select r.rNumber, r.saleDate, count(*), sum(price) as PAID
+from Receipts r, Items i, Customers c, Goods g
+where r.rNumber = i.receipt and r.customer = c.cid and
+      i.item = g.gId and
+      c.lastName = 'MESDAQ' and c.firstName = 'CHARLENE'
+group by r.rNumber, r.saleDate
 order by PAID desc
 ;
 
 
 --- query 4
-select r.saledate, count(distinct r.rnumber) as PURCHASES,
+select r.saleDate, count(distinct r.rNumber) as PURCHASES,
        count(*) as ITEMS, sum(price) as REVENUE
-from receipts r, items i, goods g
-where r.rnumber = i.reciept and g.gid = i.item and
-      r.saledate >= '08-OCT-07' and r.saledate <= '14-OCT-07'
-group by r.saledate
-order by r.saledate
+from Receipts r, Items i, Goods g
+where r.rNumber = i.receipt and g.gId = i.item and
+      r.saleDate >= '08-OCT-07' and r.saleDate <= '14-OCT-07'
+group by r.saleDate
+order by r.saleDate
 ;
 
 --- query 5
-select r.saledate
-from  reciepts r, items i, goods g
-where r.rnumber = i.reciept and i.item = g.gid and
+select r.saleDate
+from  Receipts r, Items i, Goods g
+where r.rNumber = i.receipt and i.item = g.gId and
       g.food = 'Cake'
-group by r.saledate
+group by r.saleDate
 having count(*) > 5
-order by r.saledate
+order by r.saleDate
 ;
 
 
