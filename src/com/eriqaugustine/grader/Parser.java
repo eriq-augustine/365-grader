@@ -17,7 +17,7 @@ import java.util.regex.Matcher;
  */
 public class Parser {
    private static final Pattern QUERY_NUMBER_PATTERN =
-         Pattern.compile("\\s*--+\\s*q?(?:uery)?\\s*#?\\s*(\\d+)", Pattern.CASE_INSENSITIVE);
+         Pattern.compile("^\\s*--+\\s*q?(?:uery)?\\s*#?\\s*(\\d+).*$", Pattern.CASE_INSENSITIVE);
 
    public static void printUsage() {
       System.err.println("USAGE: java com.eriqaugustine.grader.Parser [--key] [--verbose] <File>");
@@ -89,6 +89,9 @@ public class Parser {
       for (File file : files) {
          // Strip off the '.sql' that we know exists because of the filter above.
          String baseName = file.getName().substring(0, file.getName().length() - 4);
+
+         // Strip off any -query or -queries.
+         baseName = baseName.replaceFirst("-.*$", "");
 
          Object queries = null;
          if (isKey) {
@@ -179,9 +182,17 @@ public class Parser {
 
       try {
          Scanner fileScanner = new Scanner(new File(fileName));
+         String peekLine = null;
 
-         while (fileScanner.hasNextLine()) {
-            Matcher match = QUERY_NUMBER_PATTERN.matcher(fileScanner.nextLine().trim());
+         while (peekLine != null || fileScanner.hasNextLine()) {
+            Matcher match = null;
+
+            if (peekLine != null) {
+               match = QUERY_NUMBER_PATTERN.matcher(peekLine.trim());
+               peekLine = null;
+            } else {
+               match = QUERY_NUMBER_PATTERN.matcher(fileScanner.nextLine().trim());
+            }
             if (match.matches()) {
                int num = Integer.parseInt(match.group(1));
 
@@ -196,8 +207,15 @@ public class Parser {
                while (fileScanner.hasNextLine()) {
                   String line = fileScanner.nextLine().trim();
 
-                  // Empty line, query is over.
+                  // Skip blanks.
                   if (line.length() == 0) {
+                     continue;
+                  }
+
+                  // Found next query, current query is over.
+                  match = QUERY_NUMBER_PATTERN.matcher(line);
+                  if (match.matches()) {
+                     peekLine = line;
                      break;
                   }
 
@@ -317,12 +335,13 @@ public class Parser {
 
    private static ExpectedResults compileExpectedResults(String options, List<String> queries) {
       boolean sorted = false;
+      boolean countOnly = false;
       List<String> sortKeys = new ArrayList<String>();
 
       options = options.trim();
 
       if (options.length() == 0) {
-         return new ExpectedResults(sorted, sortKeys, queries);
+         return new ExpectedResults(sorted, sortKeys, countOnly, queries);
       }
 
       for (String option : options.split(";")) {
@@ -334,11 +353,13 @@ public class Parser {
             for (String key : parts[1].trim().split(",")) {
                sortKeys.add(key.trim());
             }
+         } else if (parts[0].trim().equals("CountOnly")) {
+            countOnly = true;
          } else {
             Logger.logError("Unrecognized option: '" + parts[0] + "'.");
          }
       }
 
-      return new ExpectedResults(sorted, sortKeys, queries);
+      return new ExpectedResults(sorted, sortKeys, countOnly, queries);
    }
 }

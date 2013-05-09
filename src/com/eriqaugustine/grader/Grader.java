@@ -16,7 +16,7 @@ import java.util.TreeSet;
  * The main for the grading process.
  */
 public class Grader {
-   private static final int SUBMISSION_SCORE_MAX = 25;
+   private static final int SUBMISSION_SCORE_MAX = 15;
 
    private boolean verbose;
    private boolean noCommit;
@@ -58,7 +58,7 @@ public class Grader {
             Logger.setVerbose(true);
             verbose = true;
          } else if (args[i].equals("--parse-only")) {
-            int exitStatus = parseFileOrDir(target) ? 0 : 1;
+            int exitStatus = parseFileOrDir(target, verbose) ? 0 : 1;
             System.exit(exitStatus);
          } else if (args[i].equals("--no-commit")) {
             noCommit = true;
@@ -85,7 +85,7 @@ public class Grader {
    /**
     * Return true on successful parse.
     */
-   private static boolean parseFileOrDir(String target) {
+   private static boolean parseFileOrDir(String target, boolean verbose) {
       File targetFile = new File(target);
 
       if (targetFile.isDirectory()) {
@@ -102,11 +102,28 @@ public class Grader {
             queries = Parser.parseFile(file.getAbsolutePath());
             // Don't sort circuit, show problems with any files.
             success = success && (queries != null);
+
+            if (verbose) {
+               if (queries == null) {
+                  Logger.log(file.getName() + ": Error Parsing");
+               } else {
+                  Logger.log(file.getName() + ": " + queries.size() + " queries");
+               }
+            }
          }
 
          return success;
       } else if (targetFile.isFile()) {
          Map<Integer, String> queries = Parser.parseFile(target);
+
+         if (verbose) {
+            if (queries == null) {
+               Logger.log(targetFile.getName() + ": Error Parsing");
+            } else {
+               Logger.log(targetFile.getName() + ": " + queries.size() + " queries");
+            }
+         }
+
          return queries != null;
       } else {
          return false;
@@ -157,17 +174,59 @@ public class Grader {
       }
 
       if (verbose) {
+         // The number of students that answered each query.
+         // { dataset => { query number => count } }
+         Map<String, Map<Integer, Integer>> totalCounts = new HashMap<String, Map<Integer, Integer>>();
+         // The sum of all scores for each query.
+         Map<String, Map<Integer, Double>> totalSums = new HashMap<String, Map<Integer, Double>>();
+
          for (String student : scores.keySet()) {
             int score = SUBMISSION_SCORE_MAX;
 
             for (String dataset : scores.get(student).keySet()) {
+               if (!totalCounts.containsKey(dataset)) {
+                  totalCounts.put(dataset, new HashMap<Integer, Integer>());
+                  totalSums.put(dataset, new HashMap<Integer, Double>());
+               }
+
                for (Integer queryNum : scores.get(student).get(dataset).keySet()) {
                   score += scores.get(student).get(dataset).get(queryNum).getScore();
+
+                  if (!totalCounts.get(dataset).containsKey(queryNum)) {
+                     totalCounts.get(dataset).put(queryNum, 1);
+                  } else {
+                     totalCounts.get(dataset).put(queryNum, totalCounts.get(dataset).get(queryNum) + 1);
+                  }
+
+                  if (!totalSums.get(dataset).containsKey(queryNum)) {
+                     totalSums.get(dataset).put(queryNum, scores.get(student).get(dataset).get(queryNum).getScore());
+                  } else {
+                     totalSums.get(dataset).put(queryNum,
+                        totalSums.get(dataset).get(queryNum) + scores.get(student).get(dataset).get(queryNum).getScore());
+                  }
                }
             }
 
             Logger.log(student + ": " + score);
          }
+
+         String breakdown = "Breakdown:\n";
+         int totalStudents = scores.size();
+         for (String dataset : totalCounts.keySet()) {
+            breakdown += "   " + dataset + ":\n";
+
+            for (Integer queryNum : totalCounts.get(dataset).keySet()) {
+               double meanScore =
+                     totalSums.get(dataset).get(queryNum).doubleValue() /
+                     totalCounts.get(dataset).get(queryNum).intValue();
+               breakdown += String.format("      %d: %d/%d (%4.2f)\n",
+                                          queryNum.intValue(),
+                                          totalCounts.get(dataset).get(queryNum).intValue(),
+                                          totalStudents,
+                                          meanScore);
+            }
+         }
+         Logger.log(breakdown);
       }
 
       if (!noCommit) {
@@ -198,6 +257,16 @@ public class Grader {
       String gradesheet = Props.getString("NAME") + "\n";
       gradesheet += "Student: " + student + "\n\n";
 
+      // Comments
+      List<String> comments = Props.getList("COMMENTS");
+      if (comments.size() > 0) {
+         gradesheet += "Comments: \n";
+         for (String comment : comments) {
+            gradesheet += "          " + comment + "\n";
+         }
+         gradesheet += "\n";
+      }
+
       int total = SUBMISSION_SCORE_MAX;
       int totalNumberOfQueries = 0;
 
@@ -207,7 +276,7 @@ public class Grader {
          totalNumberOfQueries += queriesForDataset;
 
          if (!score.containsKey(dataset)) {
-            datasetScores += dataset + " : 0/" + queriesForDataset * 5 +
+            datasetScores += dataset + " : 0/" + queriesForDataset * QueryScore.MAX_SCORE +
                              "  -- No submission for dataset;\n\n";
             continue;
          }
@@ -219,19 +288,19 @@ public class Grader {
                datasetQueryScores += "Query " + i + ": " + score.get(dataset).get(new Integer(i)).toString() + "\n";
                datasetTotal += score.get(dataset).get(new Integer(i)).getScore();
             } else {
-               datasetQueryScores += "Query " + i + ": 0/5  -- Missing Query;\n";
+               datasetQueryScores += "Query " + i + ": 0/" + QueryScore.MAX_SCORE + " -- Missing Query;\n";
             }
          }
 
          total += datasetTotal;
-         datasetScores += dataset + " : " + datasetTotal + "/" + queriesForDataset * 5 + "\n";
+         datasetScores += dataset + " : " + datasetTotal + "/" + queriesForDataset * QueryScore.MAX_SCORE + "\n";
          datasetScores += datasetQueryScores + "\n";
       }
 
-      gradesheet += "Total: " + total + "/" + (SUBMISSION_SCORE_MAX + (totalNumberOfQueries * 5)) + "\n\n";
+      gradesheet += "Total: " + total + "/" + (SUBMISSION_SCORE_MAX + (totalNumberOfQueries * QueryScore.MAX_SCORE)) + "\n\n";
       // TODO(eriq): Take off for submission.
       gradesheet += "Submission: " + SUBMISSION_SCORE_MAX + "/" + SUBMISSION_SCORE_MAX + "\n\n";
-      gradesheet += "QUERIES: " + (total - SUBMISSION_SCORE_MAX) + "/" + (totalNumberOfQueries * 5) + "\n";
+      gradesheet += "QUERIES: " + (total - SUBMISSION_SCORE_MAX) + "/" + (totalNumberOfQueries * QueryScore.MAX_SCORE) + "\n";
       gradesheet += datasetScores;
 
       try {
@@ -288,7 +357,7 @@ public class Grader {
       QueryResults result = dbConnection.doQuery(query);
 
       if (result == null) {
-         return null;
+         return QueryScore.sqlError();
       }
 
       QueryScore bestScore = null;

@@ -1,5 +1,7 @@
 package com.eriqaugustine.grader;
 
+import org.apache.commons.lang.StringUtils;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -11,12 +13,12 @@ import java.util.Set;
  * A class to handle to scoring of queries and their related data.
  */
 public class QueryScore {
-   private static final int MAX_SCORE = 5;
+   public static final int MAX_SCORE = 3;
 
    // Non-critical deductions. (All critical ones are MAX_SCORE).
-   private static final int LOW_ROW_COUNT_DEDUCTION = 3;
-   private static final int LOW_CORRECT_ROW_DEDUCTION = 2;
-   private static final int BAD_SORT_DEDUCTION = 1;
+   private static final int LOW_ROW_COUNT_DEDUCTION = 2;
+   private static final int LOW_CORRECT_ROW_DEDUCTION = 1;
+   private static final double BAD_SORT_DEDUCTION = 0.5;
 
    // Difference in the number of returned rows.
    private static final double MIN_ROW_COUNT_PERCENTAGE = 0.6;
@@ -29,21 +31,34 @@ public class QueryScore {
    private static final double MIN_CORRECT_ROW_PERCENTAGE = 0.6;
    private static final double LOW_CORRECT_ROW_PERCENTAGE = 0.8;
 
-   private int score;
-   private List<Integer> deductions;
+   // Max allowed Levenshtein Distance between two attributes.
+   private static final int MAX_LEVENSHTEIN_DISTANCE = 2;
+
+   private double score;
+   private List<Double> deductions;
    private List<String> deductionReasons;
 
-   public QueryScore(int score, List<Integer> deductions, List<String> deductionReasons) {
+   public QueryScore(double score, List<Double> deductions, List<String> deductionReasons) {
       this.score = score;
-      this.deductions = new ArrayList<Integer>(deductions);
+      this.deductions = new ArrayList<Double>(deductions);
       this.deductionReasons = new ArrayList<String>(deductionReasons);
    }
 
-   public int getScore() {
+   public static QueryScore sqlError() {
+      List<Double> deductions = new ArrayList<Double>();
+      List<String> deductionReasons = new ArrayList<String>();
+
+      deductions.add(new Double(MAX_SCORE));
+      deductionReasons.add("SQL Error");
+
+      return new QueryScore(0, deductions, deductionReasons);
+   }
+
+   public double getScore() {
       return score;
    }
 
-   public List<Integer> getDeductions() {
+   public List<Double> getDeductions() {
       return deductions;
    }
 
@@ -67,7 +82,7 @@ public class QueryScore {
 
    public static QueryScore score(QueryResults result, QueryResults key,
                                   ExpectedResults expected) {
-      List<Integer> deductions = new ArrayList<Integer>();
+      List<Double> deductions = new ArrayList<Double>();
       List<String> deductionReasons = new ArrayList<String>();
 
       // First step: Count comparison.
@@ -80,12 +95,22 @@ public class QueryScore {
 
       double countPercentage = Math.min(keyCount, resultCount) / (double)Math.max(keyCount, resultCount);
       if (countPercentage < MIN_ROW_COUNT_PERCENTAGE) {
-         deductions.add(new Integer(MAX_SCORE));
+         deductions.add(new Double(MAX_SCORE));
          deductionReasons.add("Significantly different number of rows");
          return new QueryScore(0, deductions, deductionReasons);
       } else if (countPercentage < LOW_ROW_COUNT_PERCENTAGE) {
-         deductions.add(new Integer(LOW_ROW_COUNT_DEDUCTION));
+         deductions.add(new Double(LOW_ROW_COUNT_DEDUCTION));
          deductionReasons.add("Different number of rows");
+      }
+
+      if (expected.getCountOnly()) {
+         double finalDeductions = 0;
+         for (Double deduction : deductions) {
+            finalDeductions += deduction.doubleValue();
+         }
+         finalDeductions = Math.min(finalDeductions, MAX_SCORE);
+
+         return new QueryScore(MAX_SCORE - finalDeductions, deductions, deductionReasons);
       }
 
       // Maps |smaller| columns to |larger| columns.
@@ -94,7 +119,7 @@ public class QueryScore {
       QueryResults larger;
 
       // Now setup what will be compared to what.
-      // The smaller will always be compared to the smaller (the smaller will be itterated).
+      // The smaller will always be compared to the larger (the smaller will be itterated).
       if (keyCount <= resultCount) {
          smaller = key;
          larger = result;
@@ -107,7 +132,7 @@ public class QueryScore {
 
       // Second step: Check number of disambiguated columns.
       if ((double)mapping.size() / key.getColumns().size() < MIN_COLUMN_PERCENTAGE) {
-         deductions.add(new Integer(MAX_SCORE));
+         deductions.add(new Double(MAX_SCORE));
          deductionReasons.add("Unable to disambiguate a significant number of columns");
          return new QueryScore(0, deductions, deductionReasons);
       }
@@ -122,7 +147,7 @@ public class QueryScore {
 
             if (unsortedCorrectRows > numCorrectRows) {
                numCorrectRows = unsortedCorrectRows;
-               deductions.add(new Integer(BAD_SORT_DEDUCTION));
+               deductions.add(BAD_SORT_DEDUCTION);
                deductionReasons.add("Bad sort");
             }
          }
@@ -134,17 +159,17 @@ public class QueryScore {
       // Points were already taken off for incorrect number of rows, no need to take off more.
       double correctPercent = (double)numCorrectRows / smaller.getRows().size();
       if (correctPercent < MIN_CORRECT_ROW_PERCENTAGE) {
-         deductions.add(new Integer(MAX_SCORE));
+         deductions.add(new Double(MAX_SCORE));
          deductionReasons.add("Significant number of incorrect rows");
          return new QueryScore(0, deductions, deductionReasons);
       } else if (correctPercent < LOW_CORRECT_ROW_PERCENTAGE) {
-         deductions.add(new Integer(LOW_CORRECT_ROW_DEDUCTION));
+         deductions.add(new Double(LOW_CORRECT_ROW_DEDUCTION));
          deductionReasons.add("Some incorrect rows");
       }
 
-      int finalDeductions = 0;
-      for (Integer deduction : deductions) {
-         finalDeductions += deduction.intValue();
+      double finalDeductions = 0;
+      for (Double deduction : deductions) {
+         finalDeductions += deduction.doubleValue();
       }
       finalDeductions = Math.min(finalDeductions, MAX_SCORE);
 
@@ -228,14 +253,18 @@ public class QueryScore {
 
       List<QueryResults.ColumnData> keyColumns = key.getColumns();
       List<QueryResults.ColumnData> resultColumns = result.getColumns();
+      Set<String> usedResultColumns = new HashSet<String>();
 
       // First pass, case insensitve name comparison.
       for (int keyIndex = 0; keyIndex < keyColumns.size(); keyIndex++) {
-         for (int resultIndex = 0; resultIndex < resultColumns.size(); resultIndex++) {
-            if (!mapping.containsKey(keyColumns.get(keyIndex).name) &&
-                keyColumns.get(keyIndex).name.equalsIgnoreCase(resultColumns.get(resultIndex).name)) {
-               mapping.put(keyColumns.get(keyIndex).name, resultColumns.get(resultIndex).name);
-               break;
+         if (!mapping.containsKey(keyColumns.get(keyIndex).name)) {
+            for (int resultIndex = 0; resultIndex < resultColumns.size(); resultIndex++) {
+               if (!usedResultColumns.contains(resultColumns.get(resultIndex).name) &&
+                   keyColumns.get(keyIndex).name.equalsIgnoreCase(resultColumns.get(resultIndex).name)) {
+                  mapping.put(keyColumns.get(keyIndex).name, resultColumns.get(resultIndex).name);
+                  usedResultColumns.add(resultColumns.get(resultIndex).name);
+                  break;
+               }
             }
          }
       }
@@ -246,11 +275,54 @@ public class QueryScore {
          Map<String, Object> resultRow = result.getRows().get(0);
 
          for (String keyCol : keyRow.keySet()) {
-            for (String resultCol : resultRow.keySet()) {
-               if (!mapping.containsKey(keyCol) &&
-                   keyRow.get(keyCol).equals(resultRow.get(resultCol))) {
-                  mapping.put(keyCol, resultCol);
-                  break;
+            if (!mapping.containsKey(keyCol)) {
+               for (String resultCol : resultRow.keySet()) {
+                  if (!usedResultColumns.contains(resultCol) &&
+                      keyRow.get(keyCol).equals(resultRow.get(resultCol))) {
+                     mapping.put(keyCol, resultCol);
+                     usedResultColumns.add(resultCol);
+                     break;
+                  }
+               }
+            }
+         }
+      }
+
+      // Third pass, Edit Distance
+      for (int keyIndex = 0; keyIndex < keyColumns.size(); keyIndex++) {
+         if (!mapping.containsKey(keyColumns.get(keyIndex).name)) {
+            int minDist = -1;
+            int minDistIndex = -1;
+            String lowerKey = keyColumns.get(keyIndex).name.toLowerCase();
+
+            for (int resultIndex = 0; resultIndex < resultColumns.size(); resultIndex++) {
+               if (!usedResultColumns.contains(resultColumns.get(resultIndex).name)) {
+                  int dist = StringUtils.getLevenshteinDistance(lowerKey, resultColumns.get(resultIndex).name.toLowerCase());
+
+                  if (dist < minDist) {
+                     minDist = dist;
+                     minDistIndex = resultIndex;
+                  }
+               }
+            }
+
+            if (minDist != -1 && minDist <= MAX_LEVENSHTEIN_DISTANCE) {
+               mapping.put(keyColumns.get(keyIndex).name, resultColumns.get(minDistIndex).name);
+               usedResultColumns.add(resultColumns.get(minDistIndex).name);
+            }
+         }
+      }
+
+      // If each set has just one left, then just make that mapping.
+      if (keyColumns.size() - mapping.size() == 1 && resultColumns.size() - usedResultColumns.size() == 1) {
+         for (int keyIndex = 0; keyIndex < keyColumns.size(); keyIndex++) {
+            if (!mapping.containsKey(keyColumns.get(keyIndex).name)) {
+               for (int resultIndex = 0; resultIndex < resultColumns.size(); resultIndex++) {
+                  if (!usedResultColumns.contains(resultColumns.get(resultIndex).name)) {
+                     mapping.put(keyColumns.get(keyIndex).name, resultColumns.get(resultIndex).name);
+                     usedResultColumns.add(resultColumns.get(resultIndex).name);
+                     break;
+                  }
                }
             }
          }

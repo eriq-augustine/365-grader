@@ -27,15 +27,25 @@ public class ExpectedResults {
    private List<String> sortKeys;
 
    /**
+    * Only check the row count.
+    */
+   private boolean countOnly;
+
+   /**
     * The accepted answsers.
     * Note that variants on the answer are accepted.
     */
    private List<String> queries;
 
-   public ExpectedResults(boolean sorted, List<String> sortKeys, List<String> queries) {
+   public ExpectedResults(boolean sorted, List<String> sortKeys, boolean countOnly, List<String> queries) {
+      this.countOnly = countOnly;
       this.sorted = sorted;
       this.sortKeys = new ArrayList<String>(sortKeys);
       this.queries = new ArrayList<String>(queries);
+   }
+
+   public boolean getCountOnly() {
+      return countOnly;
    }
 
    public boolean getSorted() {
@@ -57,6 +67,7 @@ public class ExpectedResults {
    public String toString(String prefix) {
       String res = "";
 
+      res += prefix + "Count Only: " + countOnly + "\n";
       res += prefix + "Sorted: " + sorted + "\n";
 
       res += prefix + "Sort Keys: [";
