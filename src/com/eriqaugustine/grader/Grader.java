@@ -41,6 +41,7 @@ public class Grader {
       boolean verbose = false;
       boolean noCommit = false;
       boolean skipGradesheets = false;
+      boolean parseOnly = false;
 
       if (args.length < 1) {
          printUsage();
@@ -58,8 +59,7 @@ public class Grader {
             Logger.setVerbose(true);
             verbose = true;
          } else if (args[i].equals("--parse-only")) {
-            int exitStatus = parseFileOrDir(target, verbose) ? 0 : 1;
-            System.exit(exitStatus);
+            parseOnly = true;
          } else if (args[i].equals("--no-commit")) {
             noCommit = true;
          } else if (args[i].equals("--skip-gradesheets")) {
@@ -71,6 +71,11 @@ public class Grader {
             printUsage();
             System.exit(1);
          }
+      }
+
+      if (parseOnly) {
+         int exitStatus = parseFileOrDir(target, verbose) ? 0 : 1;
+         System.exit(exitStatus);
       }
 
       if (!Props.readFile(target)) {
