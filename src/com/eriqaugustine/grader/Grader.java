@@ -17,6 +17,7 @@ import java.util.TreeSet;
  */
 public class Grader {
    private static final int SUBMISSION_SCORE_MAX = 15;
+   private static final int LATE_DEDUCTION = 15;
 
    private boolean verbose;
    private boolean noCommit;
@@ -272,7 +273,12 @@ public class Grader {
          gradesheet += "\n";
       }
 
-      int total = SUBMISSION_SCORE_MAX;
+      int submissionScore = SUBMISSION_SCORE_MAX;
+      if (Props.has("LATE")) {
+         submissionScore -= LATE_DEDUCTION;
+      }
+
+      int total = submissionScore;
       int totalNumberOfQueries = 0;
 
       String datasetScores = "-------------------------------------------------\n";
@@ -304,7 +310,14 @@ public class Grader {
 
       gradesheet += "Total: " + total + "/" + (SUBMISSION_SCORE_MAX + (totalNumberOfQueries * QueryScore.MAX_SCORE)) + "\n\n";
       // TODO(eriq): Take off for submission.
-      gradesheet += "Submission: " + SUBMISSION_SCORE_MAX + "/" + SUBMISSION_SCORE_MAX + "\n\n";
+      gradesheet += "Submission: " + submissionScore + "/" + SUBMISSION_SCORE_MAX;
+
+      if (Props.has("LATE")) {
+         gradesheet += " -- LATE\n\n";
+      } else {
+         gradesheet += "\n\n";
+      }
+
       gradesheet += "QUERIES: " + (total - SUBMISSION_SCORE_MAX) + "/" + (totalNumberOfQueries * QueryScore.MAX_SCORE) + "\n";
       gradesheet += datasetScores;
 
