@@ -2,6 +2,7 @@ package com.eriqaugustine.grader;
 
 import java.io.File;
 import java.io.FilenameFilter;
+import java.io.FileFilter;
 import java.io.FileWriter;
 
 import java.util.Arrays;
@@ -92,41 +93,37 @@ public class Grader {
     * Return true on successful parse.
     */
    private static boolean parseFileOrDir(String target, boolean verbose) {
+      return parseFileOrDir(target, "", verbose);
+   }
+
+   private static boolean parseFileOrDir(String target, String indent, boolean verbose) {
       File targetFile = new File(target);
 
       if (targetFile.isDirectory()) {
          boolean success = true;
          Map<Integer, String> queries = null;
 
-         File[] files = targetFile.listFiles(new FilenameFilter(){
-            public boolean accept(File dir, String name) {
-               return name.endsWith(".sql");
+         File[] files = targetFile.listFiles(new FileFilter(){
+            public boolean accept(File path) {
+               return path.getName().endsWith(".sql") || path.isDirectory();
             }
          });
 
-         for (File file : files) {
-            queries = Parser.parseFile(file.getAbsolutePath());
-            // Don't sort circuit, show problems with any files.
-            success = success && (queries != null);
+         Logger.log(indent + targetFile.getName());
 
-            if (verbose) {
-               if (queries == null) {
-                  Logger.log(file.getName() + ": Error Parsing");
-               } else {
-                  Logger.log(file.getName() + ": " + queries.size() + " queries");
-               }
-            }
+         for (File file : files) {
+            success &= parseFileOrDir(file.getAbsolutePath(), indent + "   ", verbose);
          }
 
          return success;
       } else if (targetFile.isFile()) {
-         Map<Integer, String> queries = Parser.parseFile(target);
+         Map<Integer, String> queries = Parser.parseFile(targetFile.getAbsolutePath());
 
          if (verbose) {
             if (queries == null) {
-               Logger.log(targetFile.getName() + ": Error Parsing");
+               Logger.log(indent + targetFile.getName() + ": Error Parsing");
             } else {
-               Logger.log(targetFile.getName() + ": " + queries.size() + " queries");
+               Logger.log(indent + targetFile.getName() + ": " + queries.size() + " queries");
             }
          }
 
@@ -160,6 +157,10 @@ public class Grader {
 
       if (Props.getString("TYPE").equals("query")) {
          for (String student : submissions.keySet()) {
+            if (verbose) {
+               System.out.println("Grading " + student + "...");
+            }
+
             scores.put(student, gradeSubmission(submissions.get(student), keys, keyResults));
          }
       } else if (Props.getString("TYPE").equals("update")) {
@@ -278,7 +279,7 @@ public class Grader {
          submissionScore -= LATE_DEDUCTION;
       }
 
-      int total = submissionScore;
+      int queryTotal = 0;
       int totalNumberOfQueries = 0;
 
       String datasetScores = "-------------------------------------------------\n";
@@ -303,12 +304,12 @@ public class Grader {
             }
          }
 
-         total += datasetTotal;
+         queryTotal += datasetTotal;
          datasetScores += dataset + " : " + datasetTotal + "/" + queriesForDataset * QueryScore.MAX_SCORE + "\n";
          datasetScores += datasetQueryScores + "\n";
       }
 
-      gradesheet += "Total: " + total + "/" + (SUBMISSION_SCORE_MAX + (totalNumberOfQueries * QueryScore.MAX_SCORE)) + "\n\n";
+      gradesheet += "Total: " + (queryTotal + submissionScore) + "/" + (SUBMISSION_SCORE_MAX + (totalNumberOfQueries * QueryScore.MAX_SCORE)) + "\n\n";
       // TODO(eriq): Take off for submission.
       gradesheet += "Submission: " + submissionScore + "/" + SUBMISSION_SCORE_MAX;
 
@@ -318,7 +319,7 @@ public class Grader {
          gradesheet += "\n\n";
       }
 
-      gradesheet += "QUERIES: " + (total - SUBMISSION_SCORE_MAX) + "/" + (totalNumberOfQueries * QueryScore.MAX_SCORE) + "\n";
+      gradesheet += "QUERIES: " + queryTotal + "/" + (totalNumberOfQueries * QueryScore.MAX_SCORE) + "\n";
       gradesheet += datasetScores;
 
       try {

@@ -18,7 +18,7 @@ public class QueryScore {
    // Non-critical deductions. (All critical ones are MAX_SCORE).
    private static final int LOW_ROW_COUNT_DEDUCTION = 2;
    private static final int LOW_CORRECT_ROW_DEDUCTION = 1;
-   private static final double BAD_SORT_DEDUCTION = 0.5;
+   private static final double BAD_SORT_DEDUCTION = 1;
 
    // Difference in the number of returned rows.
    private static final double MIN_ROW_COUNT_PERCENTAGE = 0.6;
