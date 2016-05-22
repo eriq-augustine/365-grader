@@ -189,6 +189,9 @@ public class Grader {
 
          for (String student : scores.keySet()) {
             int score = SUBMISSION_SCORE_MAX;
+            if (Props.has("LATE")) {
+               score -= LATE_DEDUCTION;
+            }
 
             for (String dataset : scores.get(student).keySet()) {
                if (!totalCounts.containsKey(dataset)) {
